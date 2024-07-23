@@ -12,6 +12,7 @@ from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 
 MY_PATH = os.path.dirname(os.path.abspath(__file__)) + "/"
 STATIC_PATH = MY_PATH + '../static/'
+CERT_PATH = MY_PATH + '../../cert/'
 
 
 SERVER_CONFIG = {
@@ -19,7 +20,7 @@ SERVER_CONFIG = {
         {
             'tools.staticdir.on': True,
             'tools.staticdir.dir': STATIC_PATH,
-            'tools.staticdir.index': 'index.html'
+            'tools.staticdir.index': 'index.html',
         },
     "/video": {},
     # "/audio":
@@ -35,7 +36,8 @@ SERVER_CONFIG = {
     # '/favicon.ico': {
     #     'tools.staticfile.on': True,
     #     'tools.staticfile.filename': STATIC_PATH + "favicon.svg"
-    # }
+    # },
+
 }
 
 
@@ -62,8 +64,5 @@ if __name__ == '__main__':
 
     cherrypy.engine.start()
     cherrypy.engine.block()
-
-
-
 
 

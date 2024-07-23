@@ -1,7 +1,10 @@
 #!/bin/bash
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install -y curl python3 python3-pip python3-serial python3-cherrypy3 python3-ws4py odroid-wiringpi libjpeg8-dev
+sudo apt install -y curl python3 python3-pip odroid-wiringpi libjpeg8-dev python3-openssl
+
+python3 -m pip install pyserial cherrypy ws4py cython pip-review
+pip-review -a
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
 
 ./bin/arduino-cli config init
@@ -11,6 +14,12 @@ curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.
 ./bin/arduino-cli core install arduino:avr
 ./bin/arduino-cli core install pololu-a-star:avr
 
-
-
-
+sudo apt install -y nginx
+sudo rm -rf /etc/nginx/cert
+sudo cp -r cert /etc/nginx/cert
+sudo rm -f /etc/nginx/sites-enabled/*
+sudo rm -f /etc/nginx/sites-available/*
+sudo cp nginx.conf /etc/nginx/sites-available/robot.conf
+sudo ln -s /etc/nginx/sites-available/robot.conf /etc/nginx/sites-enabled/robot.conf 
+sudo systemctl enable nginx
+sudo systemctl restart nginx
