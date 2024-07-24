@@ -8,7 +8,7 @@ from cameralib import AsyncCamera
 
 def find_video_device():
     i = 0
-    while not os.path.exist('/dev/video%d'%i):
+    while not os.path.exists('/dev/video%d'%i):
         i += 1
     return '/dev/video%d'%i
 
@@ -42,7 +42,11 @@ class VideoServer:
 
 if __name__ == '__main__':
     cherrypy.config.update({
-        'server.socket_host': '0.0.0.0',
-        'server.socket_port': 8080
+        'server.socket_host': '127.0.0.1',
+        'server.socket_port': 8081
     })
-    cherrypy.quickstart(VideoServer())
+    cherrypy.log.screen = True
+    cherrypy.config.update({"server.max_request_body_size": 256*1024})
+    cherrypy.tree.mount(VideoServer(find_video_device()), '/video')
+    cherrypy.engine.start()
+    cherrypy.engine.block()

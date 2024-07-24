@@ -1,7 +1,7 @@
 #!/bin/bash
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install -y curl python3 python3-pip odroid-wiringpi libjpeg8-dev python3-openssl
+sudo apt install -y curl python3 python3-pip odroid-wiringpi libjpeg8-dev
 
 python3 -m pip install pyserial cherrypy ws4py cython pip-review
 pip-review -a

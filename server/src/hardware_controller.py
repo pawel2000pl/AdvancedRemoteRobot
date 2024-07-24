@@ -2,12 +2,14 @@ import json
 import cherrypy
 
 from time import sleep
+from tasks import Task
 from serial import Serial
 from logger import log_error
 from threading import Timer
 from ws4py.websocket import WebSocket
 from configuration import configuration
 from ws4py.messaging import Message, TextMessage
+from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 
 HELLO_VALUE = 185
 AUTHENTICATED_SOCKETS = set()
@@ -102,3 +104,38 @@ class HardwareWebSocketHandler(WebSocket):
             AUTHENTICATED_SOCKETS.difference_update({self})
         except Exception as err:
             log_error(err)
+
+
+
+class HardwareRoot():
+
+    @cherrypy.expose('/hardware')
+    def hardware(self):
+        cherrypy.log("Connected hardware controller: "+repr(cherrypy.request.ws_handler))
+
+
+
+if __name__ == '__main__':
+    CONFIG = {
+        "/hardware":
+        {
+            'tools.websocket.on': True,
+            'tools.websocket.handler_cls': HardwareWebSocketHandler
+        }
+    }
+
+    WebSocketPlugin(cherrypy.engine).subscribe()
+    cherrypy.tools.websocket = WebSocketTool()
+    cherrypy.log.screen = True
+    cherrypy.config.update({"server.max_request_body_size": 256*1024})
+    cherrypy.config.update({
+        'server.socket_host': '127.0.0.1',
+        'server.socket_port': 8082
+    })
+    cherrypy.tree.mount(HardwareRoot(), '/', CONFIG)
+
+    Task(cherrypy.engine, serial_checker, period=0.035, init_delay=1).subscribe()
+
+    cherrypy.engine.start()
+    cherrypy.engine.block()
+

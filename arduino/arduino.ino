@@ -13,10 +13,10 @@
 #define SENSOR_READ_B 19
 #define SENSOR_READ_C 20
 
-#define ENGINE_LEFT_POWER 5
-#define ENGINE_RIGHT_POWER 6
-#define ENGINE_LEFT_DIRECTION 7
-#define ENGINE_RIGHT_DIRECTION 8
+#define ENGINE_RIGHT_POWER 5
+#define ENGINE_LEFT_POWER 6
+#define ENGINE_RIGHT_DIRECTION 7
+#define ENGINE_LEFT_DIRECTION 8
 
 #define HELLO_VALUE 185
 #define SPEEDOMETER_INTERRUPS_PER_ROUND 64
@@ -43,7 +43,7 @@ void setEnginePower(int power, int direction, int *currentPower, int *currentDir
     if (*currentPower)
       *currentPower = 0;
     else 
-      *currentDirection = 0;
+      *currentDirection = direction;
   } else 
     *currentPower = power;
 }
@@ -176,24 +176,6 @@ void setup() {
 
   Serial.begin(115200);
   Serial.flush();
-
-  // for (int i=0;i<10;i++) setEnginesPower(255, 0);
-  // delay(1000);
-  // for (int i=0;i<10;i++) setEnginesPower(-255, 0);
-  // delay(1000);
-
-  // for (int i=0;i<10;i++) setEnginesPower(0, 255);
-  // delay(1000);
-  // for (int i=0;i<10;i++) setEnginesPower(0, -255);
-  // delay(1000);
-
-  // for (int i=0;i<10;i++) setEnginesPower(128, 128);
-  // delay(1000);
-  // for (int i=0;i<10;i++) setEnginesPower(255, 255);
-  // delay(1000);
-  // for (int i=0;i<10;i++) setEnginesPower(-255, -255);
-  // delay(1000);
-  // for (int i=0;i<10;i++) setEnginesPower(0, 0);
 }
 
 
