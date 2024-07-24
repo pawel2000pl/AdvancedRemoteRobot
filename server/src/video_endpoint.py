@@ -37,7 +37,9 @@ class VideoServer:
         while True:
             while not camera.frame_available():
                 sleep(1/100)   
-            yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + camera.get_frame()  + b'\r\n'
+            yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'
+            yield camera.get_frame()
+            yield b'\r\n'
 
 
 if __name__ == '__main__':
@@ -47,6 +49,6 @@ if __name__ == '__main__':
     })
     cherrypy.log.screen = True
     cherrypy.config.update({"server.max_request_body_size": 256*1024})
-    cherrypy.tree.mount(VideoServer(find_video_device()), '/video')
+    cherrypy.tree.mount(VideoServer(find_video_device(), (1280, 720)), '/video')
     cherrypy.engine.start()
     cherrypy.engine.block()

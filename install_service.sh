@@ -34,7 +34,7 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=1
-User=$USER
+User=$1
 ExecStart=$PWD/start.sh
 
 [Install]

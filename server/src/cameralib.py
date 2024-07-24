@@ -81,8 +81,8 @@ class AsyncCamera(Camera):
         return bytes(jpeg_buffer[:bytes_written])
 
 
-# if __name__ == "__main__":
-#     camera = Camera("/dev/video2", 1280, 720)
-#     with open("test.mjpeg", "wb") as f:
-#         for i in range(100):
-#             f.write(camera.get_frame(70))
+if __name__ == "__main__":
+    camera = Camera("/dev/video0", 1280, 720)
+    with open("test.mjpeg", "wb") as f:
+        for i in range(100):
+            f.write(camera.get_frame(70))

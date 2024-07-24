@@ -13,10 +13,10 @@
 #define SENSOR_READ_B 19
 #define SENSOR_READ_C 20
 
-#define ENGINE_RIGHT_POWER 5
-#define ENGINE_LEFT_POWER 6
-#define ENGINE_RIGHT_DIRECTION 7
+#define ENGINE_LEFT_POWER 5
+#define ENGINE_RIGHT_POWER 6
 #define ENGINE_LEFT_DIRECTION 8
+#define ENGINE_RIGHT_DIRECTION 7
 
 #define HELLO_VALUE 185
 #define SPEEDOMETER_INTERRUPS_PER_ROUND 64
@@ -176,6 +176,7 @@ void setup() {
 
   Serial.begin(115200);
   Serial.flush();
+  
 }
 
 
@@ -184,6 +185,7 @@ void loop() {
   readHardware();
 
   setEnginesPower(registers.leftEngine, registers.rightEngine);
+  digitalWrite(BEEP_PIN, registers.beep ? HIGH : LOW);
 
   delay(10);
   recvRegisters();

@@ -1,0 +1,43 @@
+<!DOCTYPE HTML>
+
+<html>
+
+    <head>
+
+    </head>
+
+
+    <body>
+
+        <input id="password-input" type="password">
+        <button onclick="login()">Login</button>
+
+        <script>
+
+            async function login() {
+                let response = await fetch('/login', {
+                    method: "post",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        password: document.getElementById('password-input').value
+                    }),
+                });
+                let result = await response.json();
+                if (result['status'] != "ok")
+                    alert('Incorrect password');
+                else
+                    window.location = '/index.html';
+            }
+
+            document.getElementById('password-input').addEventListener('keypress', (event)=>{
+                if (event.key == "Enter")
+                    login();
+            });
+
+        </script>
+
+    </body>
+
+</html>

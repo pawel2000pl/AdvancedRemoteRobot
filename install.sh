@@ -1,7 +1,7 @@
 #!/bin/bash
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install -y curl python3 python3-pip odroid-wiringpi libjpeg8-dev
+sudo apt install -y curl python3 python3-pip odroid-wiringpi libjpeg8-dev sqlite3
 
 python3 -m pip install pyserial cherrypy ws4py cython pip-review
 pip-review -a
@@ -23,3 +23,9 @@ sudo cp nginx.conf /etc/nginx/sites-available/robot.conf
 sudo ln -s /etc/nginx/sites-available/robot.conf /etc/nginx/sites-enabled/robot.conf 
 sudo systemctl enable nginx
 sudo systemctl restart nginx
+
+chmod +x *.sh
+sudo ./install_services.sh $USER
+cd server/src
+python3 configuration.py
+cd ../..

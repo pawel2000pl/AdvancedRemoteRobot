@@ -12,7 +12,7 @@ from ws4py.messaging import Message, TextMessage
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 
 HELLO_VALUE = 185
-AUTHENTICATED_SOCKETS = set()
+SOCKETS = set()
 SERIAL = Serial(configuration['serial'], 115200)
 
 
@@ -29,7 +29,7 @@ def send_data(addr, value):
 
 
 def serial_checker():
-    sockets = list(AUTHENTICATED_SOCKETS)
+    sockets = list(SOCKETS)
     error = False
     while SERIAL.in_waiting >= 5:
         SERIAL.read_until(bytes([HELLO_VALUE]))
@@ -49,13 +49,12 @@ def serial_checker():
             except Exception as err:
                 log_error(err)
                 try:
-                    AUTHENTICATED_SOCKETS.difference_update({socket})
+                    SOCKETS.difference_update({socket})
                     socket.close()
                 except Exception as _:
                     pass
 
-    # ping
-    # send_data(0, 0x7FFF)
+    send_data(0, 0x7FFF)
 
 
 
@@ -64,29 +63,13 @@ class HardwareWebSocketHandler(WebSocket):
 
     def __init__(self, sock, protocols=None, extensions=None, environ=None, heartbeat_freq=None):
         super().__init__(sock, protocols, extensions, environ, heartbeat_freq)
-        Timer(3, self.authentication_timeout).start()
-        self.authenticated = False
-
-
-    def authentication_timeout(self):
-        if not self.authenticated:
-            self.close()
+        SOCKETS.add(self)
 
 
     def received_message(self, message: Message):
         content = json.loads(message.data.decode(message.encoding))
 
         try:
-            if not self.authenticated and content['action'] == 'authentication':
-                if content['token'] == configuration['token']:
-                    self.authenticated = True
-                    self.send(TextMessage(json.dumps({'status': 'ok'})))
-                    AUTHENTICATED_SOCKETS.add(self)
-                    cherrypy.log('Authentication ok')
-
-            if not self.authenticated:
-                return
-
             if content['action'] == 'set':
                 if 'data' in content:
                     for field in content['data']:
@@ -94,14 +77,13 @@ class HardwareWebSocketHandler(WebSocket):
                 else:
                     send_data(content['addr'], content['value'])
 
-
         except Exception as err:
             log_error(err)
 
 
     def closed(self, code, reason=""):
         try:
-            AUTHENTICATED_SOCKETS.difference_update({self})
+            SOCKETS.difference_update({self})
         except Exception as err:
             log_error(err)
 
@@ -138,4 +120,3 @@ if __name__ == '__main__':
 
     cherrypy.engine.start()
     cherrypy.engine.block()
-

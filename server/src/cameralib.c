@@ -222,6 +222,7 @@ struct v4l2_context* open_device(const char* device, int width, int height) {
     }
     context->width = width;
     context->height = height;
+    context->thread = NULL;
     
     memset(&fmt, 0, sizeof(fmt));
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

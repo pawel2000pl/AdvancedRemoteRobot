@@ -1,0 +1,12 @@
+
+
+#main-container {
+    display: flex;
+}
+
+
+#camera-view {
+    background-color: gray;
+    width: 70vw;
+    height: 52vw;
+}
