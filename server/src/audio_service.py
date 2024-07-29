@@ -9,6 +9,7 @@ import numpy as np
 from tasks import Task
 from time import sleep, time
 from logger import log_error
+from iter_buffer import IterBuffer
 from threading import Thread, Lock
 from ws4py.websocket import WebSocket
 from ws4py.messaging import Message, TextMessage
@@ -46,9 +47,9 @@ class AudioThread:
 
 
     def close_all(self):
-        for client in self.audio_clients:
+        for client in list(self.audio_clients):
             client.close()
-
+            
 
     def run(self):
         if len(self.audio_clients):
@@ -73,8 +74,8 @@ class AudioThread:
                 buffer.clip(-127, 127, out=buffer)
                 buffer = buffer.astype(np.int8, copy=False)
                 for i, client in enumerate(audio_clients):
-                    if len(client.buffers_to_play) < 5 and np.sum(np.abs(buffer[i])) != 0:                        
-                        client.buffers_to_play.append(buffer[i].tobytes())
+                    if np.sum(np.abs(buffer[i])) != 0:                        
+                        client.add_buffer_to_play(buffer[i].tobytes())
             
             except (KeyboardInterrupt, SystemExit):
                 for client in list(self.audio_clients):
@@ -91,11 +92,12 @@ class AudioClient:
 
     def __init__(self):
         self.lock = Lock()
-        self.rec_buffers = []
-        self.buffer_length = 0
         self.is_closed = False
-        self.connectTime = time()
-        self.buffers_to_play = []        
+        self.connectTime = time()      
+
+        self.play_buffer = IterBuffer(0)
+        self.record_buffer = IterBuffer(0)
+
         self.thread = Thread(target=self.playing_thread)
         self.thread.start()
         AUDIO_THREAD.audio_clients.add(self)
@@ -105,12 +107,17 @@ class AudioClient:
         self.close()
 
 
+    def add_buffer_to_play(self, data):
+        if self.play_buffer.size < AUDIO_BUF_SIZE:                        
+            self.play_buffer.feed(data)
+
+
     def playing_thread(self):
         while not self.is_closed:
-            if len(self.buffers_to_play) == 0:
+            if self.play_buffer.size == 0:
                 sleep(AUDIO_BUFFER_LATENCY)
             else:
-                self.play_audio(self.buffers_to_play.pop(0))
+                self.play_audio(bytes(self.play_buffer.get(CHUNK_SIZE)))
 
 
     def play_audio(self, data):
@@ -119,21 +126,17 @@ class AudioClient:
 
     def get_buffer_to_send(self, send_size):
         with self.lock:
-            if send_size > self.buffer_length:
-                return None
-            self.buffer_length -= send_size
-            buffer_iter = itertools.chain.from_iterable(self.rec_buffers) if len(self.rec_buffers) > 1 else self.rec_buffers[0]
-            self.rec_buffers = [buffer_iter]
-            return np.fromiter(buffer_iter, count=send_size, dtype=np.uint8).astype(np.int8, copy=False)        
-        
+            if self.record_buffer.size > 0:
+                return np.fromiter(self.record_buffer.get(send_size), count=send_size, dtype=np.uint8).astype(np.int8, copy=False)        
+
 
     def feed_data(self, data):
         if self.is_closed:
             return
         dest_size = AUDIO_SAMPLE_RATE * AUDIO_THREAD.true_latency
         with self.lock:
-            add_size = min(AUDIO_BUF_SIZE-self.buffer_length, len(data))
-            compression_index = max(0, int(math.log((1+self.buffer_length) / dest_size, 1.618)))
+            add_size = min(AUDIO_BUF_SIZE-self.record_buffer.size, len(data))
+            compression_index = max(0, int(math.log((1+self.record_buffer.size) / dest_size, 1.618)))
             
             if add_size <= 0 or compression_index >= len(COMPRESSIONS_MAPS):
                 return                    
@@ -143,15 +146,14 @@ class AudioClient:
                 data = itertools.compress(data, COMPRESSIONS_MAPS[compression_index])
                 add_size = COMPRESSIONS_SIZES[compression_index][add_size]
 
-            self.rec_buffers.append(data)
-            self.buffer_length += add_size
+            self.record_buffer.feed(data, add_size)
 
 
     def close(self):
         if self.is_closed:
             return
         self.is_closed = True
-        sleep(2 * self.buffer_length / AUDIO_SAMPLE_RATE)
+        sleep(2 * self.record_buffer.size / AUDIO_SAMPLE_RATE)
         AUDIO_THREAD.audio_clients.difference_update([self])
 
 
@@ -164,7 +166,7 @@ class AudioStreamWebSocketHandler(WebSocket, AudioClient):
 
 
     def play_audio(self, data):
-        try:            
+        try:
             self.send(data, binary=True)
         except (AttributeError, TimeoutError, BrokenPipeError):
             self.close()
@@ -185,7 +187,7 @@ class AudioStreamWebSocketHandler(WebSocket, AudioClient):
 
 
     def closed(self, code, reason=""):
-        cherrypy.log('Audio connection %s closed')
+        cherrypy.log('Audio connection closed')
 
 
     def close(self, *args, **kwargs):
@@ -217,20 +219,24 @@ class AudioHardwareClient(AudioClient):
                             output=True,
                             frames_per_buffer=CHUNK_SIZE)
 
-        self.record_thread = Thread(target=self.record_audio, args=(self, self.input_stream, frames))
+        self.record_thread = Thread(target=self.record_audio, args=(self, self.input_stream, frames))        
         self.record_thread.start()
+
 
 
     def close(self):
         global HARDWARE_CLIENT_ENABLED
         HARDWARE_CLIENT_ENABLED = False
         super().close()
-        self.record_thread.join()
-        self.input_stream.stop_stream()
-        self.input_stream.close()
-        self.output_stream.stop_stream()
-        self.output_stream.close()
-        self.pyaudio.terminate()
+        try:
+            self.record_thread.join()
+            self.input_stream.stop_stream()
+            self.input_stream.close()
+            self.output_stream.stop_stream()
+            self.output_stream.close()
+            self.pyaudio.terminate()
+        except AttributeError:
+            pass
 
 
     def record_audio(self):
@@ -239,7 +245,6 @@ class AudioHardwareClient(AudioClient):
 
 
     def play_audio(self, data):
-        print(len(data), CHUNK_SIZE)
         self.output_stream.write(data)
 
 
@@ -248,7 +253,7 @@ class AudioRoot():
 
     @cherrypy.expose('/audio')
     def audio(self):
-        cherrypy.log("Connected hardware controller: "+repr(cherrypy.request.ws_handler))
+        cherrypy.log("Connected audio_controller")
         if not HARDWARE_CLIENT_ENABLED:
             AudioHardwareClient()
 
