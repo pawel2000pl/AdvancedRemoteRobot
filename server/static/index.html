@@ -20,12 +20,21 @@
                 <p>
                     <input id="speed-range" type="range" min="0" max="255">
                 </p>
+                <p>
+                    <div id="voice-chat-details">
+                            <input type="button" id="join-voice-chat" value="Join">
+                            <input type="button" id="leave-voice-chat" value="Leave">
+                            <input type="button" id="mute-voice-chat" value="Mute">
+                            <input type="button" id="unmute-voice-chat" value="Unmute">
+                    </div>
+                </p>
             </div>
         </div>
 
         <script src="/auth_checker.js"></script>
         <script src="/hardware.js"></script>
         <script src="/control_panel.js"></script>
+        <script src="/audio_stream.js"></script>
 
     </body>
 

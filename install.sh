@@ -1,9 +1,8 @@
 #!/bin/bash
 set -e
-
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install -y curl cmake python3 python3-pip odroid-wiringpi libjpeg8-dev sqlite3
+sudo apt install -y curl cmake python3 python3-pip odroid-wiringpi libjpeg8-dev portaudio19-dev sqlite3
 
 python3 -m pip install -U pip
 python3 -m pip install -U setuptools
