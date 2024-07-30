@@ -7,7 +7,7 @@ sudo apt install -y curl cmake python3 python3-pip odroid-wiringpi libjpeg8-dev 
 python3 -m pip install -U pip
 python3 -m pip install -U setuptools
 python3 -m pip install -U setuptools_scm
-python3 -m pip install pyserial cherrypy ws4py cython numpy
+python3 -m pip install pyserial cherrypy ws4py cython numpy pyalsaaudio
 
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
 ./bin/arduino-cli config init
