@@ -29,6 +29,25 @@ unsigned long long int rightEngineInterrupts = 0;
 Registers registers;
 
 
+void noPingAction() {
+  registers.leftEngine = 0;
+  registers.rightEngine = 0;
+  registers.led = 0;
+}
+
+
+void pingChecker() {
+  static unsigned long long int lastPingCheck = millis();
+  unsigned long long int t = millis();
+  unsigned long long int dt = t - lastPingCheck;
+  lastPingCheck = t;
+  if (registers.ping < dt) registers.ping = 0;
+  else registers.ping -= dt;
+  if (!registers.ping)
+    noPingAction();
+}
+
+
 void leftEngineInterrupt() {
   leftEngineInterrupts++;
 }
@@ -183,6 +202,7 @@ void setup() {
 
 void loop() {
   readHardware();
+  pingChecker();
 
   setEnginesPower(registers.leftEngine, registers.rightEngine);
   digitalWrite(BEEP_PIN, registers.beep ? HIGH : LOW);

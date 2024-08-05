@@ -7,6 +7,7 @@ template<typename T, typename U> constexpr int offsetOf(U T::*member)
     return (char*)&((T*)nullptr->*member) - (char*)nullptr;
 }
 
+// BEGIN REGISTERS DEFINITION
 struct Registers {
 
   int16 ping = 0x7FFF;
@@ -16,6 +17,8 @@ struct Registers {
 
   int16 battery = 0; //mV
   int16 beep = 0;
+
+  int16 led = 0;
 
   // cm/s
   int16 leftVelocity = 0;
@@ -30,12 +33,16 @@ struct Registers {
   int16 sensorsEventStop[24] = {0}; // negative - stop when lower, positive - stop when higher, 0 - deactivated
 
 };
+// END REGISTERS DEFINITION
 
+
+// BEGIN LIST OF WRITE REGISTERS
 const int WRITE_REGISTERS[] = {
   offsetOf(&Registers::ping)/2,
   offsetOf(&Registers::leftEngine)/2,
   offsetOf(&Registers::rightEngine)/2,
   offsetOf(&Registers::beep)/2,
+  offsetOf(&Registers::led)/2,
   offsetOf(&Registers::sensorsEventStop)/2,
   offsetOf(&Registers::sensorsEventStop)/2+1,
   offsetOf(&Registers::sensorsEventStop)/2+2,
@@ -62,7 +69,10 @@ const int WRITE_REGISTERS[] = {
   offsetOf(&Registers::sensorsEventStop)/2+23,
   -1
 };
+// END LIST OF WRITE REGISTERS
 
+
+// BEGIN LIST OF READ REGISTERS
 const int READ_REGISTERS[] = {
   offsetOf(&Registers::battery)/2,
   offsetOf(&Registers::leftVelocity)/2,
@@ -95,3 +105,5 @@ const int READ_REGISTERS[] = {
   // offsetOf(&Registers::sensorsStates)/2+23,
   -1
 };
+// END LIST OF READ REGISTERS
+

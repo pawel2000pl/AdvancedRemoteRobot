@@ -54,9 +54,6 @@ def serial_checker():
                 except Exception as _:
                     pass
 
-    send_data(0, 0x7FFF)
-
-
 
 class HardwareWebSocketHandler(WebSocket):
 

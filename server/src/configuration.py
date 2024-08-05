@@ -46,6 +46,14 @@ def get_configuration(name, default_value=None):
     return result[0] if result else default_value
 
 
+def get_all_configuration():
+    cursor, connection = get_db_cursor()
+    cursor.execute('''SELECT name, value FROM configuration''')
+    result = {k: v for k, v in cursor}
+    connection.close()
+    return result
+
+
 def add_token():
     cursor, connection = get_db_cursor()
     token = base64.urlsafe_b64encode(os.urandom(64)).decode('utf-8')
