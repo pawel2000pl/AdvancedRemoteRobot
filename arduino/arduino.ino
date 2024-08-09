@@ -1,3 +1,4 @@
+#include <Servo.h>
 #include "registers.h"
 
 #define BEEP_PIN 13
@@ -18,16 +19,36 @@
 #define ENGINE_LEFT_DIRECTION 8
 #define ENGINE_RIGHT_DIRECTION 7
 
+#define CAMERA_X 9
+#define CAMERA_Y 10
+#define CAMERA_Y_NEG 11
+
+#define SENSOR_ENABLED 12
+
 #define HELLO_VALUE 185
 #define SPEEDOMETER_INTERRUPS_PER_ROUND 64
-#define WHEEL_LENGTH_CM 45
+#define WHEEL_LENGTH_MM 450
 
-unsigned long long int lasCheckVelocityTime = micros();
-unsigned long long int leftEngineInterrupts = 0;
-unsigned long long int rightEngineInterrupts = 0;
+struct VelocityRecord {
+  unsigned long long int lastTime = 0;
+  unsigned long long int dt = 0;
+
+  void update() {
+    unsigned long long int t = micros();
+    dt = t - lastTime;
+    lastTime = t;
+  }
+  
+  void check(unsigned long long int t) {
+    if (t - lastTime > 2 * dt)
+      dt = 0xFFFFFFFF;
+  }
+};
+
+VelocityRecord leftVelocity, rightVelocity;
 
 Registers registers;
-
+Servo cam_x_servo, cam_y_servo, cam_y_neg_servo;
 
 void noPingAction() {
   registers.leftEngine = 0;
@@ -41,7 +62,7 @@ void pingChecker() {
   unsigned long long int t = millis();
   unsigned long long int dt = t - lastPingCheck;
   lastPingCheck = t;
-  if (registers.ping < dt) registers.ping = 0;
+  if (registers.ping <= dt) registers.ping = 0;
   else registers.ping -= dt;
   if (!registers.ping)
     noPingAction();
@@ -49,11 +70,11 @@ void pingChecker() {
 
 
 void leftEngineInterrupt() {
-  leftEngineInterrupts++;
+  leftVelocity.update();
 }
 
 void rightEngineInterrupt() {
-  rightEngineInterrupts++;
+  rightVelocity.update();
 }
 
 
@@ -100,23 +121,28 @@ void setEnginesPower(int16 left, int16 right) {
 void readHardware() {
     registers.battery = (unsigned long long)analogRead(BATTERY_PIN) * (5200l * (47l + 22l)) / (22l * 1024l);
 
-    unsigned long long int time = micros();
-    unsigned long long int dt = time - lasCheckVelocityTime;
-    lasCheckVelocityTime = time;
-    registers.leftVelocity = (unsigned long long)leftEngineInterrupts * (1000000 * WHEEL_LENGTH_CM) / (dt * SPEEDOMETER_INTERRUPS_PER_ROUND);
-    registers.rightVelocity = (unsigned long long)rightEngineInterrupts * (1000000 * WHEEL_LENGTH_CM) / (dt * SPEEDOMETER_INTERRUPS_PER_ROUND);
+    unsigned long long t = micros();
+    registers.leftVelocity = constrain((1000000llu * WHEEL_LENGTH_MM) / (leftVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
+    registers.rightVelocity = constrain((1000000llu * WHEEL_LENGTH_MM) / (rightVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
+    leftVelocity.check(t);
+    rightVelocity.check(t);
+
+    if (!registers.ping)
+      return;
 
     int sensor_pins[] = {SENSOR_SELECT_0, SENSOR_SELECT_1, SENSOR_SELECT_2};
 
-    for (int i=0;i<8;i++) {
-      digitalWrite(SENSOR_SELECT_0, (i & 1) ? HIGH : LOW);
-      digitalWrite(SENSOR_SELECT_1, (i & 2) ? HIGH : LOW);
-      digitalWrite(SENSOR_SELECT_2, (i & 4) ? HIGH : LOW);
-      delay(1);
-      registers.sensorsStates[i] = analogRead(SENSOR_READ_A);
-      registers.sensorsStates[i+8] = analogRead(SENSOR_READ_B);
-      registers.sensorsStates[i+16] = analogRead(SENSOR_READ_C);
-    }
+    static unsigned int readLoop = 0;
+    unsigned int i = readLoop++ & 0b111;
+
+    registers.sensorsStates[i] = analogRead(SENSOR_READ_A);
+    registers.sensorsStates[i+8] = analogRead(SENSOR_READ_B);
+    registers.sensorsStates[i+16] = analogRead(SENSOR_READ_C);
+    i++;
+    digitalWrite(SENSOR_SELECT_0, (i & 1) ? HIGH : LOW);
+    digitalWrite(SENSOR_SELECT_1, (i & 2) ? HIGH : LOW);
+    digitalWrite(SENSOR_SELECT_2, (i & 4) ? HIGH : LOW);
+    
 
     for (int i=0;i<24;i++) {
       if (
@@ -131,9 +157,34 @@ void readHardware() {
 }
 
 
+void writeHardware() {
+  setEnginesPower(registers.leftEngine, registers.rightEngine);
+  digitalWrite(BEEP_PIN, registers.beep ? HIGH : LOW);
+  digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
+
+  if (registers.ping) {
+    if (!cam_x_servo.attached()) cam_x_servo.attach(CAMERA_X); 
+    if (!cam_y_servo.attached()) cam_y_servo.attach(CAMERA_Y);
+    if (!cam_y_neg_servo.attached()) cam_y_neg_servo.attach(CAMERA_Y_NEG); 
+
+    cam_x_servo.write(map(registers.cameraX, -255, 255, 0, 180));
+    cam_y_servo.write(map(180-registers.cameraY, -255, 255, 30, 150));
+    cam_y_neg_servo.write(map(registers.cameraY, -255, 255, 30, 150));
+  } else {
+    if (cam_x_servo.attached()) cam_x_servo.detach(); 
+    if (cam_y_servo.attached()) cam_y_servo.detach();
+    if (cam_y_neg_servo.attached()) cam_y_neg_servo.detach(); 
+  }
+}
+
+
+unsigned char getChecksum(unsigned char addr, int16 value) {
+  return (((unsigned long)addr + 1) * (((unsigned long)value & 0xFFFF) + 1)) & 255;
+}
+
+
 void sendData(unsigned char addr, int16 value) {
-  unsigned absValue = abs((int)value);
-  unsigned char buf[5] = {HELLO_VALUE, addr, absValue & 255, absValue >> 8, ((unsigned)(addr + 1) * (absValue + 1)) & 255};
+  unsigned char buf[5] = {HELLO_VALUE, addr, ((unsigned)value) & 255, ((unsigned)value) >> 8, getChecksum(addr, value)};
   Serial.write(buf, 5);
 }
 
@@ -153,13 +204,14 @@ void sendRegisters() {
 
 
 bool recvData() {
-  while (Serial.read() != HELLO_VALUE);
+  while (Serial.read() != HELLO_VALUE)
+    if (!Serial.available())
+      return false;
   unsigned char buf[4] = {0};
   Serial.readBytes(buf, 4);
-  unsigned addr = buf[0];
+  unsigned char addr = buf[0];
   int16 value = (unsigned)buf[1] | ((unsigned)buf[2] << 8);
-  unsigned checksum = buf[3];
-  if ((((unsigned)(addr + 1) * (unsigned)(abs((int)value) + 1)) & 255) == checksum && addr < (sizeof(Registers) >> 1)) {
+  if (getChecksum(addr, value) == buf[3] && addr < (sizeof(Registers) >> 1)) {
     ((int16*)(&registers))[addr] = value;
     return true;
   }
@@ -174,6 +226,9 @@ void recvRegisters() {
 
 
 void setup() {
+
+  pinMode(LEFT_VELOCITY, INPUT);
+  pinMode(RIGHT_VELOCITY, INPUT);
 
   pinMode(BEEP_PIN, OUTPUT);
   pinMode(BATTERY_PIN, INPUT);
@@ -190,8 +245,10 @@ void setup() {
   pinMode(ENGINE_LEFT_DIRECTION, OUTPUT);
   pinMode(ENGINE_RIGHT_DIRECTION, OUTPUT);
 
-  attachInterrupt(digitalPinToInterrupt(LEFT_VELOCITY), leftEngineInterrupt, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(RIGHT_VELOCITY), rightEngineInterrupt, CHANGE);
+  pinMode(SENSOR_ENABLED, OUTPUT);
+
+  attachInterrupt(0, leftEngineInterrupt, RISING);
+  attachInterrupt(1, rightEngineInterrupt, RISING);
 
   Serial.begin(115200);
   Serial.flush();
@@ -199,15 +256,13 @@ void setup() {
 }
 
 
-
 void loop() {
   readHardware();
+  writeHardware();
   pingChecker();
-
-  setEnginesPower(registers.leftEngine, registers.rightEngine);
-  digitalWrite(BEEP_PIN, registers.beep ? HIGH : LOW);
 
   delay(10);
   recvRegisters();
-  sendRegisters();
+  if (registers.ping)
+    sendRegisters();
 }

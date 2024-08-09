@@ -24,9 +24,17 @@ with open(REGISTERS_FILENAME) as f:
             while line != footer and len(lines):
                 match = re.match(pattern, line)
                 if match is not None:
-                    value = str(match[1])
+                    match_groups = match.groups()
+                    value = str(match_groups[0])
                     counts[value] += 1
-                    new_ones.append(value)
+                    
+                    if len(match_groups) > 1 and match_groups[-1] != None:
+                        max_n = int(match_groups[-1])
+                        for i in range(max_n):
+                            new_ones.append("%s[%d]"%(value, i))
+                    else:
+                        new_ones.append(value)
+                        
                 line = get_line()
             
             indexed_entries = []
@@ -49,7 +57,7 @@ with open(REGISTERS_FILENAME) as f:
 
 
     while len(lines):
-        check_section('// BEGIN REGISTERS DEFINITION', '// END REGISTERS DEFINITION', '^[\s]*int16[\s]*([a-zA-Z0-9]+).*;$', REGISTERS_LIST)
+        check_section('// BEGIN REGISTERS DEFINITION', '// END REGISTERS DEFINITION', '^[\s]*int16[\s]*([a-zA-Z0-9]+)(\[([0-9]+)\])?[^;]*;.*$', REGISTERS_LIST)
         check_section('// BEGIN LIST OF READ REGISTERS', '// END LIST OF READ REGISTERS', '^[\s]*offsetOf\(\&Registers\:\:([a-zA-Z0-9]+)\)\/[^,]*,$', READ_REGISTERS)
         check_section('// BEGIN LIST OF WRITE REGISTERS', '// END LIST OF WRITE REGISTERS', '^[\s]*offsetOf\(\&Registers\:\:([a-zA-Z0-9]+)\)\/[^,]*,$', WRITE_REGISTERS)
         get_line()

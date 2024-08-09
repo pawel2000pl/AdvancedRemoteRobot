@@ -14,6 +14,10 @@
             <img id="camera-view">
             <div id="control-panel">
                 <p>
+                    <span>Battery: </span>
+                    <span id="battery-voltage"></span>
+                </p>
+                <p>
                     <input id="camera-chk" type="checkbox">
                     <label for="camera-chk">Enable video</label>
                 </p>
@@ -27,6 +31,26 @@
                             <input type="button" id="mute-voice-chat" value="Mute">
                             <input type="button" id="unmute-voice-chat" value="Unmute">
                     </div>
+                </p>
+                <p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>
+                                    Sensor
+                                </th>
+                                <th>
+                                    Name
+                                </th>
+                                <th>
+                                    Value
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="sensor-tbody">
+
+                        </tbody>
+                    </table>
                 </p>
             </div>
         </div>

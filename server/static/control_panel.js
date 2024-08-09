@@ -51,13 +51,18 @@ function mapKeys() {
         left /= divisor;
         right /= divisor;
     }
-    console.log({left, right});
-    return {left, right};
+
+    const beep = Number(keyBuf.has('b'));
+
+    return {left, right, beep};
 }
 
 const updateHardware = function() {
     const values = mapKeys();
-    setEngines(values.left*speedRange.value, values.right*speedRange.value);
+    registers.leftEngine.setValue(speedRange.value*values.left);
+    registers.rightEngine.setValue(speedRange.value*values.right);
+    registers.beep.setValue(values.beep);
+    updateRegisters();
 };
 
 async function sendKey(event) { 

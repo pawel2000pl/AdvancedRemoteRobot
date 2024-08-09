@@ -10,7 +10,7 @@ template<typename T, typename U> constexpr int offsetOf(U T::*member)
 // BEGIN REGISTERS DEFINITION
 struct Registers {
 
-  int16 ping = 0x7FFF;
+  int16 ping = 3000;
 
   int16 leftEngine = 0;
   int16 rightEngine = 0;
@@ -20,7 +20,7 @@ struct Registers {
 
   int16 led = 0;
 
-  // cm/s
+  // mm/s
   int16 leftVelocity = 0;
   int16 rightVelocity = 0;
 
@@ -79,30 +79,30 @@ const int READ_REGISTERS[] = {
   offsetOf(&Registers::rightVelocity)/2,
   offsetOf(&Registers::stopTimeout)/2,
   offsetOf(&Registers::emergencyStop)/2,
-  // offsetOf(&Registers::sensorsStates)/2,
-  // offsetOf(&Registers::sensorsStates)/2+1,
-  // offsetOf(&Registers::sensorsStates)/2+2,
-  // offsetOf(&Registers::sensorsStates)/2+3,
-  // offsetOf(&Registers::sensorsStates)/2+4,
-  // offsetOf(&Registers::sensorsStates)/2+5,
-  // offsetOf(&Registers::sensorsStates)/2+6,
-  // offsetOf(&Registers::sensorsStates)/2+7,
-  // offsetOf(&Registers::sensorsStates)/2+8,
-  // offsetOf(&Registers::sensorsStates)/2+9,
-  // offsetOf(&Registers::sensorsStates)/2+10,
-  // offsetOf(&Registers::sensorsStates)/2+11,
-  // offsetOf(&Registers::sensorsStates)/2+12,
-  // offsetOf(&Registers::sensorsStates)/2+13,
-  // offsetOf(&Registers::sensorsStates)/2+14,
-  // offsetOf(&Registers::sensorsStates)/2+15,
-  // offsetOf(&Registers::sensorsStates)/2+16,
-  // offsetOf(&Registers::sensorsStates)/2+17,
-  // offsetOf(&Registers::sensorsStates)/2+18,
-  // offsetOf(&Registers::sensorsStates)/2+19,
-  // offsetOf(&Registers::sensorsStates)/2+20,
-  // offsetOf(&Registers::sensorsStates)/2+21,
-  // offsetOf(&Registers::sensorsStates)/2+22,
-  // offsetOf(&Registers::sensorsStates)/2+23,
+  offsetOf(&Registers::sensorsStates)/2,
+  offsetOf(&Registers::sensorsStates)/2+1,
+  offsetOf(&Registers::sensorsStates)/2+2,
+  offsetOf(&Registers::sensorsStates)/2+3,
+  offsetOf(&Registers::sensorsStates)/2+4,
+  offsetOf(&Registers::sensorsStates)/2+5,
+  offsetOf(&Registers::sensorsStates)/2+6,
+  offsetOf(&Registers::sensorsStates)/2+7,
+  offsetOf(&Registers::sensorsStates)/2+8,
+  offsetOf(&Registers::sensorsStates)/2+9,
+  offsetOf(&Registers::sensorsStates)/2+10,
+  offsetOf(&Registers::sensorsStates)/2+11,
+  offsetOf(&Registers::sensorsStates)/2+12,
+  offsetOf(&Registers::sensorsStates)/2+13,
+  offsetOf(&Registers::sensorsStates)/2+14,
+  offsetOf(&Registers::sensorsStates)/2+15,
+  offsetOf(&Registers::sensorsStates)/2+16,
+  offsetOf(&Registers::sensorsStates)/2+17,
+  offsetOf(&Registers::sensorsStates)/2+18,
+  offsetOf(&Registers::sensorsStates)/2+19,
+  offsetOf(&Registers::sensorsStates)/2+20,
+  offsetOf(&Registers::sensorsStates)/2+21,
+  offsetOf(&Registers::sensorsStates)/2+22,
+  offsetOf(&Registers::sensorsStates)/2+23,
   -1
 };
 // END LIST OF READ REGISTERS

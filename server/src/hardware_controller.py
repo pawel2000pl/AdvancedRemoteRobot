@@ -4,16 +4,29 @@ import cherrypy
 from time import sleep
 from tasks import Task
 from serial import Serial
-from logger import log_error
 from threading import Timer
+from logger import log_error
 from ws4py.websocket import WebSocket
 from configuration import configuration
-from ws4py.messaging import Message, TextMessage
+from ws4py.messaging import Message
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 
 HELLO_VALUE = 185
 SOCKETS = set()
 SERIAL = Serial(configuration['serial'], 115200)
+
+
+
+def makeSigned16(x):
+    return x if x <= 0x7F else x - 0x100
+
+
+def create_checksum(addr, value):
+    return ((addr + 1) * ((value & 0xFFFF) + 1)) & 255
+
+
+def check_packet(buf: bytes):
+    return len(buf) >= 5 and buf[0] == HELLO_VALUE and create_checksum(buf[1], buf[2] | (buf[3] << 8)) == buf[4]
 
 
 def send_data(addr, value):
@@ -23,7 +36,7 @@ def send_data(addr, value):
         int(addr) & 255,
         value & 255,
         (value >> 8) & 255,
-        (((int(addr) & 255) + 1) * (abs(value) + 1)) & 255
+        create_checksum(addr, value)
     ]
     SERIAL.write(bytes(buf))
 
@@ -31,28 +44,28 @@ def send_data(addr, value):
 def serial_checker():
     sockets = list(SOCKETS)
     error = False
+    send_buf = []
+    i = 0
     while SERIAL.in_waiting >= 5:
+        i += 1
         SERIAL.read_until(bytes([HELLO_VALUE]))
-        buf = list(map(int, SERIAL.read(4)))
-        data = {
-            'addr': buf[0],
-            'value': buf[1] + buf[2] * 256
-        }
-        if ((data['addr']+1) * (abs(data['value'])+1) & 255) != buf[3]:
+        buf = bytes(map(int, SERIAL.read(4)))
+        if not check_packet(bytes([HELLO_VALUE]) + buf):
             error = True
             continue # błąd transmisji
+        send_buf.append(buf[:3])
 
-        data_str = json.dumps(data)
-        for socket in sockets:
-            try:
-                socket.send(TextMessage(data_str))
-            except Exception as err:
-                log_error(err)
+        if len(send_buf) > 0 and (i % 16 == 0 or SERIAL.in_waiting < 4):
+            for socket in sockets:
                 try:
-                    SOCKETS.difference_update({socket})
-                    socket.close()
-                except Exception as _:
-                    pass
+                    socket.send(bytes().join(send_buf), binary=True)
+                except Exception as err:
+                    log_error(err)
+                    try:
+                        SOCKETS.difference_update({socket})
+                        socket.close()
+                    except Exception as _:
+                        pass
 
 
 class HardwareWebSocketHandler(WebSocket):
@@ -64,18 +77,14 @@ class HardwareWebSocketHandler(WebSocket):
 
 
     def received_message(self, message: Message):
-        content = json.loads(message.data.decode(message.encoding))
-
-        try:
-            if content['action'] == 'set':
-                if 'data' in content:
-                    for field in content['data']:
-                        send_data(field['addr'], field['value'])
-                else:
-                    send_data(content['addr'], content['value'])
-
-        except Exception as err:
-            log_error(err)
+        for i in range(len(message.data)//3):
+            buf = message.data[3*i:3*(i+1)]
+            addr = buf[0]
+            value = buf[1] + (buf[2] << 8)
+            try:
+                send_data(addr, value)
+            except Exception as err:
+                log_error(err)
 
 
     def closed(self, code, reason=""):

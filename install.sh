@@ -16,6 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.
 ./bin/arduino-cli board listall
 ./bin/arduino-cli core install arduino:avr
 ./bin/arduino-cli core install pololu-a-star:avr
+./bin/arduino-cli lib install servo
 
 sudo apt install -y nginx
 sudo rm -rf /etc/nginx/cert
