@@ -6,6 +6,8 @@
 #define LEFT_VELOCITY 2
 #define RIGHT_VELOCITY 3
 
+#define LED_PIN 22
+
 #define SENSOR_SELECT_0 15
 #define SENSOR_SELECT_1 16
 #define SENSOR_SELECT_2 17
@@ -161,6 +163,7 @@ void writeHardware() {
   setEnginesPower(registers.leftEngine, registers.rightEngine);
   digitalWrite(BEEP_PIN, registers.beep ? HIGH : LOW);
   digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
+  digitalWrite(LED_PIN, (!!registers.ping && !!registers.led) ? HIGH : LOW);
 
   if (registers.ping) {
     if (!cam_x_servo.attached()) cam_x_servo.attach(CAMERA_X); 
@@ -232,6 +235,7 @@ void setup() {
 
   pinMode(BEEP_PIN, OUTPUT);
   pinMode(BATTERY_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
 
   pinMode(SENSOR_READ_A, INPUT);
   pinMode(SENSOR_READ_B, INPUT);
@@ -249,10 +253,9 @@ void setup() {
 
   attachInterrupt(0, leftEngineInterrupt, RISING);
   attachInterrupt(1, rightEngineInterrupt, RISING);
-
+  
   Serial.begin(115200);
   Serial.flush();
-  
 }
 
 
