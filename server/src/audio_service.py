@@ -23,20 +23,9 @@ def get_int_env(name, default):
 MAX_STREAM_TIME = get_int_env('MAX_STREAM_TIME', 43200)
 AUDIO_SAMPLE_RATE = get_int_env('AUDIO_SAMPLE_RATE', 16000)
 AUDIO_BUF_SIZE = get_int_env('AUDIO_BUF_SIZE', 1024)
-AUDIO_BUFFER_LATENCY = 1000 * AUDIO_BUF_SIZE // AUDIO_SAMPLE_RATE
 
 RECORD_DEVICE_NAME = os.getenv('RECORD_DEVICE_NAME', 'plughw:CARD=Device_1')
 PLAY_DEVICE_NAME = os.getenv('PLAY_DEVICE_NAME', 'plughw:CARD=Device')
-
-
-def create_resampler(source_rate, dest_rate, max_buf_size=AUDIO_BUF_SIZE):
-    k = max_buf_size / min(source_rate, dest_rate)
-    index_map = np.linspace(0, k * source_rate - 0.5, round(k * dest_rate), dtype=int)    
-    def resampler(buf: bytes):
-        np_buf = np.frombuffer(buf, dtype=np.int8)
-        dest_size = np_buf.shape[0] * dest_rate // source_rate
-        return np_buf[index_map[:dest_size]]
-    return resampler
 
 
 class AudioStreamWebSocketHandler(WebSocket):
@@ -44,7 +33,8 @@ class AudioStreamWebSocketHandler(WebSocket):
 
     def __init__(self, sock, protocols=None, extensions=None, environ=None, heartbeat_freq=None):
         super().__init__(sock, protocols, extensions, environ, heartbeat_freq)
-        self.recv_buffer = IterBuffer(0)            
+        self.recv_buffer = IterBuffer(0)   
+        self.play_strength = 0         
         self.is_closed = False
 
 
@@ -53,7 +43,8 @@ class AudioStreamWebSocketHandler(WebSocket):
             try:
                 _, buf = self.input_stream.read()
                 if sum(map(abs, buf)) >= AUDIO_BUF_SIZE:
-                    self.send(buf, binary=True)
+                    np_buffer = (np.frombuffer(buf, dtype=np.int8) *  (1 - self.play_strength/768)).astype(np.int8, copy=False)
+                    self.send(np_buffer.tobytes(), binary=True)
             except BrokenPipeError as err:
                 self.close()                
             except Exception as err:
@@ -64,7 +55,9 @@ class AudioStreamWebSocketHandler(WebSocket):
         while not self.is_closed:
             try:
                 if self.recv_buffer.size > 0:
-                    self.output_stream.write(bytes(self.recv_buffer.get(AUDIO_BUF_SIZE)))
+                    np_buffer = np.fromiter(self.recv_buffer.get(AUDIO_BUF_SIZE), dtype=np.uint8).astype(np.int8, copy=False)
+                    self.play_strength = np.max(np.abs(np_buffer))
+                    self.output_stream.write(np_buffer.tobytes())
             except Exception as err:
                 log_error(err)
 
@@ -88,7 +81,7 @@ class AudioStreamWebSocketHandler(WebSocket):
 		    channels=1, 
             rate=AUDIO_SAMPLE_RATE, 
             format=alsaaudio.PCM_FORMAT_S8,
-		    periodsize=AUDIO_BUFFER_LATENCY,
+		    periodsize=1024,
             device=RECORD_DEVICE_NAME
         )
 
@@ -98,7 +91,7 @@ class AudioStreamWebSocketHandler(WebSocket):
             channels=1, 
             rate=AUDIO_SAMPLE_RATE, 
             format=alsaaudio.PCM_FORMAT_S8,
-		    periodsize=AUDIO_BUFFER_LATENCY,
+		    periodsize=64,
             device=PLAY_DEVICE_NAME
         )
 
