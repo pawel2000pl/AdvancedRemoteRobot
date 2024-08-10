@@ -28,8 +28,9 @@
 #define SENSOR_ENABLED 12
 
 #define HELLO_VALUE 185
-#define SPEEDOMETER_INTERRUPS_PER_ROUND 64
+#define SPEEDOMETER_INTERRUPS_PER_ROUND 32
 #define WHEEL_LENGTH_MM 450
+#define MAX_VELOCITY_DT (10000000 * WHEEL_LENGTH_MM / SPEEDOMETER_INTERRUPS_PER_ROUND)
 
 struct VelocityRecord {
   unsigned long long int lastTime = 0;
@@ -42,8 +43,8 @@ struct VelocityRecord {
   }
   
   void check(unsigned long long int t) {
-    if (t - lastTime > 2 * dt)
-      dt = 0xFFFFFFFF;
+    if (t - lastTime > 5 * dt)
+      dt = MAX_VELOCITY_DT;
   }
 };
 
@@ -124,8 +125,8 @@ void readHardware() {
     registers.battery = (unsigned long long)analogRead(BATTERY_PIN) * (5200l * (47l + 22l)) / (22l * 1024l);
 
     unsigned long long t = micros();
-    registers.leftVelocity = constrain((1000000llu * WHEEL_LENGTH_MM) / (leftVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
-    registers.rightVelocity = constrain((1000000llu * WHEEL_LENGTH_MM) / (rightVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
+    registers.leftVelocity = constrain((1e6f * WHEEL_LENGTH_MM) / ((float)leftVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
+    registers.rightVelocity = constrain((1e6f * WHEEL_LENGTH_MM) / ((float)rightVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
     leftVelocity.check(t);
     rightVelocity.check(t);
 
