@@ -31,6 +31,7 @@
 #define SPEEDOMETER_INTERRUPS_PER_ROUND 32
 #define WHEEL_LENGTH_MM 450
 #define MAX_VELOCITY_DT (10000000 * WHEEL_LENGTH_MM / SPEEDOMETER_INTERRUPS_PER_ROUND)
+#define MIN_VOLTAGE 10500
 
 struct VelocityRecord {
   unsigned long long int lastTime = 0;
@@ -162,7 +163,7 @@ void readHardware() {
 
 void writeHardware() {
   setEnginesPower(registers.leftEngine, registers.rightEngine);
-  digitalWrite(BEEP_PIN, registers.beep ? HIGH : LOW);
+  digitalWrite(BEEP_PIN, (registers.beep || (registers.battery < MIN_VOLTAGE && millis() & 0x100)) ? HIGH : LOW);
   digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
   digitalWrite(LED_PIN, (!!registers.ping && !!registers.led) ? HIGH : LOW);
 
