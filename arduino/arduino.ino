@@ -32,6 +32,7 @@
 #define WHEEL_LENGTH_MM 450
 #define MAX_VELOCITY_DT (10000000 * WHEEL_LENGTH_MM / SPEEDOMETER_INTERRUPS_PER_ROUND)
 #define MIN_VOLTAGE 10500
+#define EMERGENCY_BACKWARD 200
 
 struct VelocityRecord {
   unsigned long long int lastTime = 0;
@@ -50,6 +51,7 @@ struct VelocityRecord {
 };
 
 VelocityRecord leftVelocity, rightVelocity;
+unsigned long long int emergencyStopTime = 0;
 
 Registers registers;
 Servo cam_x_servo, cam_y_servo, cam_y_neg_servo;
@@ -134,36 +136,48 @@ void readHardware() {
     if (!registers.ping)
       return;
 
-    int sensor_pins[] = {SENSOR_SELECT_0, SENSOR_SELECT_1, SENSOR_SELECT_2};
+    // static unsigned int readLoop = 0;
+    // unsigned int i = readLoop++ & 0b111;
 
-    static unsigned int readLoop = 0;
-    unsigned int i = readLoop++ & 0b111;
-
-    registers.sensorsStates[i] = analogRead(SENSOR_READ_A);
-    registers.sensorsStates[i+8] = analogRead(SENSOR_READ_B);
-    registers.sensorsStates[i+16] = analogRead(SENSOR_READ_C);
-    i++;
-    digitalWrite(SENSOR_SELECT_0, (i & 1) ? HIGH : LOW);
-    digitalWrite(SENSOR_SELECT_1, (i & 2) ? HIGH : LOW);
-    digitalWrite(SENSOR_SELECT_2, (i & 4) ? HIGH : LOW);
+    for (unsigned i=0;i<8;i++) {
+      digitalWrite(SENSOR_SELECT_0, (i & 1) ? HIGH : LOW);
+      digitalWrite(SENSOR_SELECT_1, (i & 2) ? HIGH : LOW);
+      digitalWrite(SENSOR_SELECT_2, (i & 4) ? HIGH : LOW);
+      delayMicroseconds(100);
+      registers.sensorsStates[i] = analogRead(SENSOR_READ_A);
+      registers.sensorsStates[i+8] = analogRead(SENSOR_READ_B);
+      registers.sensorsStates[i+16] = analogRead(SENSOR_READ_C);
+    }
     
-
+    registers.emergencyStop = 0;
     for (int i=0;i<24;i++) {
-      if (
+      if (registers.sensorsEventStop[i] && (
         (registers.sensorsEventStop[i] < 0 && registers.sensorsStates[i] < -registers.sensorsEventStop[i]) ||
         (registers.sensorsEventStop[i] > 0 && registers.sensorsStates[i] > registers.sensorsEventStop[i])
-      ) {
-        registers.emergencyStop = millis();
+      )) {
+        if (!emergencyStopTime)
+          emergencyStopTime = millis();
+        registers.emergencyStop = 1;
         break;
       }
     }
 
+    if (!registers.emergencyStop)
+      emergencyStopTime = 0;
 }
 
 
 void writeHardware() {
-  setEnginesPower(registers.leftEngine, registers.rightEngine);
-  digitalWrite(BEEP_PIN, (registers.beep || (registers.battery < MIN_VOLTAGE && millis() & 0x100)) ? HIGH : LOW);
+  unsigned long long int ct = millis();
+  if (registers.emergencyStop && ct - emergencyStopTime < registers.stopTimeout) {
+    if (ct - emergencyStopTime < EMERGENCY_BACKWARD)
+      setEnginesPower(-registers.leftEngine, -registers.rightEngine);
+    else
+      setEnginesPower(0, 0);
+  } else
+    setEnginesPower(registers.leftEngine, registers.rightEngine);
+
+  digitalWrite(BEEP_PIN, (registers.beep || (registers.battery < MIN_VOLTAGE && ct & 0x100)) ? HIGH : LOW);
   digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
   digitalWrite(LED_PIN, (!!registers.ping && !!registers.led) ? HIGH : LOW);
 
@@ -266,8 +280,9 @@ void loop() {
   writeHardware();
   pingChecker();
 
-  delay(10);
-  recvRegisters();
+  unsigned long long int t = millis();
+  while (millis() - t < 10)
+    recvRegisters();
   if (registers.ping)
     sendRegisters();
 }

@@ -59,6 +59,8 @@ def serial_checker():
             for socket in sockets:
                 try:
                     socket.send(bytes().join(send_buf), binary=True)
+                except AttributeError as err:
+                    pass # known issue
                 except Exception as err:
                     log_error(err)
                     try:
@@ -78,6 +80,7 @@ class HardwareWebSocketHandler(WebSocket):
 
     def received_message(self, message: Message):
         for i in range(len(message.data)//3):
+            if (i+1) % 50 == 0: sleep(0.02) # avoid buffer overflow
             buf = message.data[3*i:3*(i+1)]
             addr = buf[0]
             value = buf[1] + (buf[2] << 8)

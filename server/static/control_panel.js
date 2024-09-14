@@ -59,10 +59,11 @@ function mapKeys() {
 
 const updateHardware = function() {
     const values = mapKeys();
-    registers.leftEngine.setValue(speedRange.value*values.left);
-    registers.rightEngine.setValue(speedRange.value*values.right);
-    registers.beep.setValue(values.beep);
-    updateRegisters();
+    registers.leftEngine.setValue(speedRange.value*values.left, true);
+    registers.rightEngine.setValue(speedRange.value*values.right, true);
+    registers.beep.setValue(values.beep, true);
+    console.log(registers.leftEngine.value, registers.rightEngine.value);
+    updateRegisters(false);
 };
 
 async function sendKey(event) { 
