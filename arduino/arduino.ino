@@ -1,5 +1,6 @@
 #include <Servo.h>
 #include "registers.h"
+#include "pid.h"
 
 #define BEEP_PIN 13
 #define BATTERY_PIN 14
@@ -30,7 +31,8 @@
 #define HELLO_VALUE 185
 #define SPEEDOMETER_INTERRUPS_PER_ROUND 32
 #define WHEEL_LENGTH_MM 450
-#define MAX_VELOCITY_DT (10000000 * WHEEL_LENGTH_MM / SPEEDOMETER_INTERRUPS_PER_ROUND)
+#define MAX_VELOCITY_DT (1000000llu * WHEEL_LENGTH_MM / (SPEEDOMETER_INTERRUPS_PER_ROUND * 25))
+#define MIN_VELOCITY_DT (1000000llu * WHEEL_LENGTH_MM / (SPEEDOMETER_INTERRUPS_PER_ROUND * 1250))
 #define MIN_VOLTAGE 10500
 #define EMERGENCY_BACKWARD 200
 
@@ -40,13 +42,19 @@ struct VelocityRecord {
 
   void update() {
     unsigned long long int t = micros();
-    dt = t - lastTime;
+    unsigned long long int ndt = t - lastTime;
+    if (ndt < MIN_VELOCITY_DT) return;
+    dt = ndt;
     lastTime = t;
   }
   
-  void check(unsigned long long int t) {
-    if (t - lastTime > 5 * dt)
+  void check() {
+    if (micros() - lastTime > 5 * dt)
       dt = MAX_VELOCITY_DT;
+  }
+
+  int16 getVelocity() {
+    return (dt >= MAX_VELOCITY_DT) ? 0 : constrain((1e6f * WHEEL_LENGTH_MM) / ((float)dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), 0, 16384);
   }
 };
 
@@ -127,11 +135,10 @@ void setEnginesPower(int16 left, int16 right) {
 void readHardware() {
     registers.battery = (unsigned long long)analogRead(BATTERY_PIN) * (5200l * (47l + 22l)) / (22l * 1024l);
 
-    unsigned long long t = micros();
-    registers.leftVelocity = constrain((1e6f * WHEEL_LENGTH_MM) / ((float)leftVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
-    registers.rightVelocity = constrain((1e6f * WHEEL_LENGTH_MM) / ((float)rightVelocity.dt * SPEEDOMETER_INTERRUPS_PER_ROUND + 1), -32767, 32767);
-    leftVelocity.check(t);
-    rightVelocity.check(t);
+    registers.leftVelocity = leftVelocity.getVelocity();
+    registers.rightVelocity = rightVelocity.getVelocity();
+    leftVelocity.check();
+    rightVelocity.check();
 
     if (!registers.ping)
       return;
@@ -167,15 +174,47 @@ void readHardware() {
 }
 
 
+template<typename T> T sign(T value) {
+  return value < 0 ? -1 : value > 0 ? 1 : 0;
+}
+
+
+template<typename T, typename S> T addSign(T value, S sgn) {
+  return sgn < 0 ? -value : value;
+}
+
+Pid leftController = Pid(1e-2 * registers.pidp, 1e-2 * registers.pidi, 1e-2 * registers.pidd);
+Pid rightController = Pid(1e-2 * registers.pidp, 1e-2 * registers.pidi, 1e-2 * registers.pidd);
+unsigned long long int engineControlTime = millis();
+
 void writeHardware() {
   unsigned long long int ct = millis();
+  float dt = 1e-3 * (float)(ct - engineControlTime);
+  engineControlTime = ct;
+
+  int leftThrottle = 0;
+  int rightThrottle = 0;
+
+  if (registers.autoEngines) {
+    leftThrottle = constrain(leftController.processValues(abs(registers.leftEngine), registers.leftVelocity, dt), 0, 255);
+    rightThrottle = constrain(rightController.processValues(abs(registers.rightEngine), registers.rightVelocity, dt), 0, 255);
+  }
+
+  if (registers.leftEngine == 0 || !registers.autoEngines)
+    leftThrottle = abs(registers.leftEngine);
+  if (registers.rightEngine == 0 || !registers.autoEngines)
+    rightThrottle = abs(registers.rightEngine);
+
+  int leftPower = addSign(leftThrottle, sign(registers.leftEngine));
+  int rightPower = addSign(rightThrottle, sign(registers.rightEngine));
+  
   if (registers.emergencyStop && ct - emergencyStopTime < registers.stopTimeout) {
     if (ct - emergencyStopTime < EMERGENCY_BACKWARD)
-      setEnginesPower(-registers.leftEngine, -registers.rightEngine);
+      setEnginesPower(-leftPower, -rightPower);
     else
       setEnginesPower(0, 0);
   } else
-    setEnginesPower(registers.leftEngine, registers.rightEngine);
+    setEnginesPower(leftPower, rightPower);
 
   digitalWrite(BEEP_PIN, (registers.beep || (registers.battery < MIN_VOLTAGE && ct & 0x100)) ? HIGH : LOW);
   digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
@@ -274,15 +313,23 @@ void setup() {
   Serial.flush();
 }
 
+unsigned loopNo = 0;
+unsigned long long int loopTime = millis();
 
 void loop() {
+  loopNo++;
+
   readHardware();
   writeHardware();
   pingChecker();
 
-  unsigned long long int t = millis();
-  while (millis() - t < 10)
+  do {
     recvRegisters();
-  if (registers.ping)
+  } while (millis() - loopTime < 5);
+  loopTime = millis();
+
+  if (registers.ping && (registers.query || (loopNo & 0xFF) == 0)) {
+    registers.query = 0;
     sendRegisters();
+  }
 }

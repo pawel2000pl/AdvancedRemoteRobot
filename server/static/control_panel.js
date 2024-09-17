@@ -62,7 +62,6 @@ const updateHardware = function() {
     registers.leftEngine.setValue(speedRange.value*values.left, true);
     registers.rightEngine.setValue(speedRange.value*values.right, true);
     registers.beep.setValue(values.beep, true);
-    console.log(registers.leftEngine.value, registers.rightEngine.value);
     updateRegisters(false);
 };
 

@@ -31,7 +31,7 @@ const updateRegisters = function(all=true) {
 };
 
 const makeSigned16 = function(x) {
-    return x <= 0x7F ? x : x - 0x100;
+    return x <= 0x7FFF ? x : x - 0x10000;
 };
 
 const connectWS = function () {
@@ -149,6 +149,7 @@ setInterval(()=>{
     if (registers == null)
         return;
     registers.ping.setValue(PING_INTERVAL, true);
+    registers.query.setValue(1, true);
 }, PING_INTERVAL/5);
 
 
@@ -178,5 +179,11 @@ settingsPromise.then(()=>{
 settingsPromise.then(()=>{
     registers.battery.appendOnChange((val)=>{
         document.getElementById('battery-voltage').textContent = (val/1000).toFixed(2) + ' V'; 
+    });
+    registers.leftVelocity.appendOnChange((val)=>{
+        document.getElementById('velocity-left').textContent = val;
+    });
+    registers.rightVelocity.appendOnChange((val)=>{
+        document.getElementById('velocity-right').textContent = val;
     });
 });

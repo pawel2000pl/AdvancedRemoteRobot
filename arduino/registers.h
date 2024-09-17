@@ -11,9 +11,16 @@ template<typename T, typename U> constexpr int offsetOf(U T::*member)
 struct Registers {
 
   int16 ping = 3000;
+  int16 query = 0;
+
+  int16 pidp = 100;
+  int16 pidi = 100;
+  int16 pidd = 100;
 
   int16 leftEngine = 0;
   int16 rightEngine = 0;
+
+  int16 autoEngines = 1;
 
   int16 battery = 0; //mV
   int16 beep = 0;
@@ -39,8 +46,10 @@ struct Registers {
 // BEGIN LIST OF WRITE REGISTERS
 const int WRITE_REGISTERS[] = {
   offsetOf(&Registers::ping)/2,
+  offsetOf(&Registers::query)/2,
   offsetOf(&Registers::leftEngine)/2,
   offsetOf(&Registers::rightEngine)/2,
+  offsetOf(&Registers::autoEngines)/2,
   offsetOf(&Registers::beep)/2,
   offsetOf(&Registers::led)/2,
   offsetOf(&Registers::sensorsEventStop)/2,
