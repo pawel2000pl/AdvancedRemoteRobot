@@ -1,6 +1,5 @@
 #include <Servo.h>
 #include "registers.h"
-#include "pid.h"
 
 #define BEEP_PIN 13
 #define BATTERY_PIN 14
@@ -35,6 +34,7 @@
 #define MIN_VELOCITY_DT (1000000llu * WHEEL_LENGTH_MM / (SPEEDOMETER_INTERRUPS_PER_ROUND * 1250))
 #define MIN_VOLTAGE 10500
 #define EMERGENCY_BACKWARD 200
+#define MAX_ENGINE_CORRECTION 255
 
 struct VelocityRecord {
   unsigned long long int lastTime = 0;
@@ -111,8 +111,8 @@ void setEnginesPower(int16 left, int16 right) {
     delayMicroseconds(100 - (t - lastExec));
   lastExec = t;
 
-  int leftPower = abs(left);
-  int rightPower = abs(right);
+  int leftPower = constrain(abs(left), 0, 255);
+  int rightPower = constrain(abs(right), 0, 255);
   int leftDirection = left >= 0 ? HIGH : LOW;
   int rightDirection = right >= 0 ? HIGH : LOW;
 
@@ -183,38 +183,38 @@ template<typename T, typename S> T addSign(T value, S sgn) {
   return sgn < 0 ? -value : value;
 }
 
-Pid leftController = Pid(1e-2 * registers.pidp, 1e-2 * registers.pidi, 1e-2 * registers.pidd);
-Pid rightController = Pid(1e-2 * registers.pidp, 1e-2 * registers.pidi, 1e-2 * registers.pidd);
+
+float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+
 unsigned long long int engineControlTime = millis();
+float engineCorrection = 0;
 
 void writeHardware() {
   unsigned long long int ct = millis();
   float dt = 1e-3 * (float)(ct - engineControlTime);
   engineControlTime = ct;
 
-  int leftThrottle = 0;
-  int rightThrottle = 0;
-
   if (registers.autoEngines) {
-    leftThrottle = constrain(leftController.processValues(abs(registers.leftEngine), registers.leftVelocity, dt), 0, 255);
-    rightThrottle = constrain(rightController.processValues(abs(registers.rightEngine), registers.rightVelocity, dt), 0, 255);
-  }
+    engineCorrection += 10*dt*((registers.leftVelocity*abs(registers.rightEngine) - registers.rightVelocity*abs(registers.leftEngine))/(1+abs(registers.leftVelocity)+abs(registers.rightVelocity)));
+    engineCorrection = constrain(engineCorrection * pow(0.1, dt), -MAX_ENGINE_CORRECTION, +MAX_ENGINE_CORRECTION);
+  } else engineCorrection = 0;
 
-  if (registers.leftEngine == 0 || !registers.autoEngines)
-    leftThrottle = abs(registers.leftEngine);
-  if (registers.rightEngine == 0 || !registers.autoEngines)
-    rightThrottle = abs(registers.rightEngine);
+  int leftPower = registers.leftEngine ? constrain(abs(registers.leftEngine) - engineCorrection, 0, 255) : 0;
+  int rightPower = registers.rightEngine ? constrain(abs(registers.rightEngine) + engineCorrection, 0, 255) : 0;
 
-  int leftPower = addSign(leftThrottle, sign(registers.leftEngine));
-  int rightPower = addSign(rightThrottle, sign(registers.rightEngine));
+  int leftSignal = addSign(leftPower, sign(registers.leftEngine));
+  int rightSignal = addSign(rightPower, sign(registers.rightEngine));
   
   if (registers.emergencyStop && ct - emergencyStopTime < registers.stopTimeout) {
     if (ct - emergencyStopTime < EMERGENCY_BACKWARD)
-      setEnginesPower(-leftPower, -rightPower);
+      setEnginesPower(-leftSignal, -rightSignal);
     else
       setEnginesPower(0, 0);
   } else
-    setEnginesPower(leftPower, rightPower);
+    setEnginesPower(leftSignal, rightSignal);
 
   digitalWrite(BEEP_PIN, (registers.beep || (registers.battery < MIN_VOLTAGE && ct & 0x100)) ? HIGH : LOW);
   digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
