@@ -52,6 +52,8 @@ const int WRITE_REGISTERS[] = {
   offsetOf(&Registers::autoEngines)/2,
   offsetOf(&Registers::beep)/2,
   offsetOf(&Registers::led)/2,
+  offsetOf(&Registers::cameraX)/2,
+  offsetOf(&Registers::cameraY)/2,
   offsetOf(&Registers::sensorsEventStop)/2,
   offsetOf(&Registers::sensorsEventStop)/2+1,
   offsetOf(&Registers::sensorsEventStop)/2+2,

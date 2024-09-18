@@ -56,7 +56,7 @@ class AudioStreamWebSocketHandler(WebSocket):
             try:
                 if self.recv_buffer.size > 0:
                     np_buffer = np.fromiter(self.recv_buffer.get(AUDIO_BUF_SIZE), dtype=np.uint8).astype(np.int8, copy=False)
-                    current_strength = np.max(np.abs(np_buffer))
+                    current_strength = np.max(np.abs(np_buffer)).astype(int)
                     self.play_strength = max(current_strength, (9 * self.play_strength + current_strength) / 10)
                     self.output_stream.write(np_buffer.tobytes())
                 else:

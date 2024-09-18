@@ -24,11 +24,26 @@
                     <span id="velocity-right"></span>
                 </p>
                 <p>
+                    <p>Engine power:</p>
+                    <input id="speed-range" type="range" min="0" max="255">
+                </p>
+                <p>
                     <input id="camera-chk" type="checkbox">
                     <label for="camera-chk">Enable video</label>
                 </p>
                 <p>
-                    <input id="speed-range" type="range" min="0" max="255">
+                    <input id="led-chk" type="checkbox">
+                    <label for="led-chk">Turn on LEDs</label>
+                </p>
+                <p>
+                    <input id="camera-push-to-turn" type="checkbox">
+                    <label for="camera-push-to-turn">Camera push-mode</label>
+                </p>
+                <p>
+                    <p>Camera X</p>
+                    <input id="camera-x" type="range" min="-255" max="255" value="0">
+                    <p>Camera Y</p>
+                    <input id="camera-y" type="range" min="-255" max="255" value="0">
                 </p>
                 <p>
                     <div id="voice-chat-details">
@@ -39,24 +54,27 @@
                     </div>
                 </p>
                 <p>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>
-                                    Sensor
-                                </th>
-                                <th>
-                                    Name
-                                </th>
-                                <th>
-                                    Value
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody id="sensor-tbody">
+                    <details>
+                        <summary>Sensors</summary>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>
+                                        Sensor
+                                    </th>
+                                    <th>
+                                        Name
+                                    </th>
+                                    <th>
+                                        Value
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensor-tbody">
 
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </details>
                 </p>
             </div>
         </div>

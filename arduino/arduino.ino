@@ -27,6 +27,7 @@
 
 #define SENSOR_ENABLED 12
 
+#define SERVO_SET_TIME 100
 #define HELLO_VALUE 185
 #define SPEEDOMETER_INTERRUPS_PER_ROUND 32
 #define WHEEL_LENGTH_MM 450
@@ -189,10 +190,11 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
 }
 
 
-unsigned long long int engineControlTime = millis();
-float engineCorrection = 0;
 
-void writeHardware() {
+void updateEngines() {
+  static unsigned long long int engineControlTime = millis();
+  static float engineCorrection = 0;
+
   unsigned long long int ct = millis();
   float dt = 1e-3 * (float)(ct - engineControlTime);
   engineControlTime = ct;
@@ -202,8 +204,8 @@ void writeHardware() {
     engineCorrection = constrain(engineCorrection * pow(0.1, dt), -MAX_ENGINE_CORRECTION, +MAX_ENGINE_CORRECTION);
   } else engineCorrection = 0;
 
-  int leftPower = registers.leftEngine ? constrain(abs(registers.leftEngine) - engineCorrection, 0, 255) : 0;
-  int rightPower = registers.rightEngine ? constrain(abs(registers.rightEngine) + engineCorrection, 0, 255) : 0;
+  int leftPower = registers.leftEngine ? constrain(abs(registers.leftEngine) + engineCorrection, 0, 255) : 0;
+  int rightPower = registers.rightEngine ? constrain(abs(registers.rightEngine) - engineCorrection, 0, 255) : 0;
 
   int leftSignal = addSign(leftPower, sign(registers.leftEngine));
   int rightSignal = addSign(rightPower, sign(registers.rightEngine));
@@ -219,20 +221,39 @@ void writeHardware() {
   digitalWrite(BEEP_PIN, (registers.beep || (registers.battery < MIN_VOLTAGE && ct & 0x100)) ? HIGH : LOW);
   digitalWrite(SENSOR_ENABLED, registers.ping ? HIGH : LOW);
   digitalWrite(LED_PIN, (!!registers.ping && !!registers.led) ? HIGH : LOW);
+}
 
-  if (registers.ping) {
+
+void updateServos() {
+  static unsigned long long int lastServoUpdate = millis();
+  static int camX = 0;
+  static int camY = 0;
+
+  if (camX != registers.cameraX || camY != registers.cameraY) {
+    lastServoUpdate = millis();
+    camX = registers.cameraX;
+    camY = registers.cameraY;
+  }
+
+  if (registers.ping && millis() - lastServoUpdate < SERVO_SET_TIME) {
     if (!cam_x_servo.attached()) cam_x_servo.attach(CAMERA_X); 
     if (!cam_y_servo.attached()) cam_y_servo.attach(CAMERA_Y);
     if (!cam_y_neg_servo.attached()) cam_y_neg_servo.attach(CAMERA_Y_NEG); 
 
-    cam_x_servo.write(map(registers.cameraX, -255, 255, 0, 180));
-    cam_y_servo.write(map(180-registers.cameraY, -255, 255, 30, 150));
-    cam_y_neg_servo.write(map(registers.cameraY, -255, 255, 30, 150));
+    cam_x_servo.write(map(registers.cameraX, 255, -255, 0, 180));
+    cam_y_servo.write(map(255-registers.cameraY, -255, 255, 10, 180-45));
+    cam_y_neg_servo.write(map(registers.cameraY, -255, 255, 45, 180-10));
   } else {
     if (cam_x_servo.attached()) cam_x_servo.detach(); 
     if (cam_y_servo.attached()) cam_y_servo.detach();
     if (cam_y_neg_servo.attached()) cam_y_neg_servo.detach(); 
   }
+}
+
+
+void writeHardware() {
+  updateEngines();
+  updateServos();
 }
 
 
