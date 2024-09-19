@@ -567,6 +567,23 @@ module bumper() {
     
 }
 
+
+module charger() {
+    translate([200,0,-60]) {
+        difference() {
+            translate([0,0,5]) cube([50,170,40], center=true);
+            cube([45,160,35], center=true);
+            translate([-20,0,-7]) cube([20,90,20], center=true);
+            translate([21,-80,-10]) cube(5);
+        }
+        translate([-100,0,-5]) difference() {
+             cube([150,100,20], center=true);
+             translate([5,0,-2]) cube([150,95,20], center=true);
+        }
+    }
+}
+
+
 module print(mode=0) {
     
     if (mode==-1) for (i=[1:50]) translate([0, 300*i, 0]) print(i);
@@ -594,8 +611,9 @@ module print(mode=0) {
         
     if (mode==21) color("lightblue") intersection() {first_print_area(); body();}
     if (mode==22) color("lightblue") intersection() {second_print_area(); body();}
+    
+    if (mode==23) charger();
 }
-
 
 
 //$fn = 50;
