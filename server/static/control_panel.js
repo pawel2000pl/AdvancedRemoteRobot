@@ -101,11 +101,48 @@ async function updateCamera() {
     registers.cameraY.setValue(document.getElementById('camera-y').value);
 }
 
+function addGamepad(e) {
+    const gamepad = e.gamepad;
+    
+    const handler = (repeatFun)=>{
+        if (gamepad.connected) {
+            const returning = gamepad.buttons[4].value ? 1 : -1;
+            const forward = -gamepad.axes[1];
+            const left = forward - gamepad.axes[0] * returning;
+            const right = forward + gamepad.axes[0] * returning;
+            const scale = Math.max(1, Math.max(Math.abs(left), Math.abs(right)));
+
+            registers.leftEngine.setValue(speedRange.value*left/scale, true);
+            registers.rightEngine.setValue(speedRange.value*right/scale, true);
+            registers.beep.setValue(gamepad.buttons[5].value ? 1 : 0, true);
+        
+            const camX = document.getElementById('camera-x');
+            const camY = document.getElementById('camera-y');
+            if (document.getElementById('camera-push-to-turn').checked) {
+                camX.value = gamepad.axes[3] * 255;
+                camY.value = gamepad.axes[2] * 255;
+            } else {
+                camX.value = Number(camX.value) + gamepad.axes[3] * 60;
+                camY.value = Number(camY.value) + gamepad.axes[2] * 60;
+            }
+            updateCamera();
+            updateRegisters(false);
+
+            setTimeout(()=>repeatFun(repeatFun), 50);
+        }
+    };
+
+    handler(handler);
+}
+
 window.addEventListener('load', ()=>{
     document.addEventListener('keydown', sendKey);
     document.addEventListener('keyup', sendUpKey);
     document.getElementById('led-chk').addEventListener('change', updateLed);
     document.getElementById('camera-x').addEventListener('input', updateCamera);
     document.getElementById('camera-y').addEventListener('input', updateCamera);
+
+    window.addEventListener("gamepadconnected", addGamepad);
+      
 });
 
